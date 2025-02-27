@@ -30,13 +30,20 @@ module JekyllImport
       end
 
       def self.process(options)
-        dbname  = options.fetch("dbname")
-        user    = options.fetch("user")
-        pass    = options.fetch("password", "")
+
+        # BRUTAL HACK
+        # DATABASE OPTIONS ARE NOT DELIVERED PROPERLY
+        # REICEVED options = {"dbname"=>true, "user"=>true, "password"=>true, "prefix"=>true}
+        #
+        # WE FETCH GLOBAL ARGV INSTEAD
+
+        dbname  = $ARGV[0]
+        user    = $ARGV[1]
+        pass    = $ARGV[2]
         host    = options.fetch("host", "127.0.0.1")
         port    = options.fetch("port", 3306).to_i
         section = options.fetch("section", "1")
-        table_prefix = options.fetch("prefix", "jos_")
+        table_prefix = $ARGV[3]
 
         db = Sequel.mysql2(dbname, :user => user, :password => pass, :host => host, :port => port, :encoding => "utf8")
 
@@ -45,7 +52,7 @@ module JekyllImport
         # Reads a MySQL database via Sequel and creates a post file for each
         # post in wp_posts that has post_status = 'publish'. This restriction is
         # made because 'draft' posts are not guaranteed to have valid dates.
-        query = "SELECT `title`, `alias`, CONCAT(`introtext`,`fulltext`) as content, `created`, `id` FROM #{table_prefix}content WHERE (state = '0' OR state = '1') AND sectionid = '#{section}'"
+        query = "SELECT `title`, `alias`, CONCAT(`introtext`,`fulltext`) as content, `created`, `id` FROM #{table_prefix}content WHERE (state = '0' OR state = '1')"
 
         db[query].each do |post|
           # Get required fields and construct Jekyll compatible name.
@@ -62,7 +69,7 @@ module JekyllImport
                    sluggify(post[:alias])
                  end
 
-          name = format("%02d-%02d-%02d-%03d-%s.markdown", date.year, date.month, date.day, id, slug)
+          name = format("%02d-%02d-%02d-%s.markdown", date.year, date.month, date.day, slug)
 
           # Get the relevant fields as a hash, delete empty fields and convert
           # to YAML for the header.
@@ -73,6 +80,17 @@ module JekyllImport
             "joomla_url" => post[:alias],
             "date"       => date,
           }.delete_if { |_k, v| v.nil? || v == "" }.to_yaml
+
+          # todo : add an option to transform html to markdown
+          # cf https://github.com/xijo/reverse_markdown
+          #
+          # ReverseMarkdown.config do |config|
+          #   config.unknown_tags     = :bypass
+          #   config.github_flavored  = true
+          #   config.tag_border  = ''
+          # end
+          #
+          # markdown = ReverseMarkdown.convert content
 
           # Write out the data and content to file
           File.open("_posts/#{name}", "w") do |f|

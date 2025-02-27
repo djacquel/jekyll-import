@@ -7,6 +7,7 @@ require "rubygems"
 require "jekyll"
 require "jekyll/commands/import"
 require "colorator"
+require "reverse_markdown"
 
 require "jekyll-import/importer"
 require "jekyll-import/importers"
